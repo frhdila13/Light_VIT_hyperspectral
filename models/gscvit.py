@@ -6,7 +6,7 @@ from einops import rearrange, repeat
 from einops.layers.torch import Rearrange, Reduce
 from thop import profile
 from timm.models.vision_transformer import _cfg
-from torchsummaryX import summary
+from torchinfo import summary
 
 def cast_tuple(val, length=1):
     return val if isinstance(val, tuple) else ((val,) * length)
@@ -286,8 +286,6 @@ class GSCViT(nn.Module):
                 nn.Conv2d(layer_dim,layer_dim,1)
             ]))
 
-        self.conv_last = nn.Conv2d(dims[-1], 2 * dims[-1], 3)
-
         self.mlp_head = nn.Sequential(
             Reduce('b d h w -> b d', 'mean'),
             nn.LayerNorm(dims[-1]),
@@ -295,7 +293,9 @@ class GSCViT(nn.Module):
         )
 
     def forward(self, x):
-        x = x.squeeze(dim=1)
+        # Handle 5D input (B, 1, C, H, W) or 4D input (B, C, H, W)
+        if x.dim() == 5:
+            x = x.squeeze(dim=1)
         x = self.sc(x)
         x = self.bn_1(x)
         x = self.relu_1(x)
@@ -309,152 +309,66 @@ class GSCViT(nn.Module):
         return self.mlp_head(x)
 
 
-def gscvit(dataset):
+def gscvit(num_classes=None, num_bands=None, patch_size=None, dataset=None):
+    """
+    Modified factory function to support both hardcoded datasets 
+    and custom flexible inputs.
+    """
+    # Logic for Custom Flexible Input
+    if num_classes is not None and num_bands is not None:
+        return GSCViT(
+            num_classes=num_classes,
+            channels=num_bands,
+            heads=(1, 1, 1),
+            depth=(1, 1, 1),
+            group_spatial_size=[4, 4, 4],
+            dropout=0.1,
+            padding=[1, 1, 1],
+            dims=(256, 128, 64),
+            num_groups=[16, 16, 16]
+        )
+
+    # Original Hardcoded Dataset Logic
     model = None
     if dataset == 'sa':
-        model = GSCViT(
-            num_classes=16,
-            channels=204,
-            heads=(1, 1, 1),
-            depth=(1, 1, 1),
-            group_spatial_size=[4, 4, 4],
-            dropout=0.1,
-            padding=[1, 1, 1],
-            dims = (256, 128, 64),
-            num_groups=[16, 16, 16]
-        )
+        model = GSCViT(num_classes=16, channels=204, heads=(1, 1, 1), depth=(1, 1, 1), 
+                       group_spatial_size=[4, 4, 4], dropout=0.1, padding=[1, 1, 1], dims=(256, 128, 64), num_groups=[16, 16, 16])
     elif dataset == 'pu':
-        model = GSCViT(
-            num_classes=9,
-            channels=103,
-            heads=(1, 1, 1),
-            depth=(1, 1, 1),
-            group_spatial_size=[4, 4, 4],
-            dropout=0.1,
-            padding=[1, 1, 1],
-            dims = (256, 128, 64),
-            num_groups=[16, 16, 16]
-        )
+        model = GSCViT(num_classes=9, channels=103, heads=(1, 1, 1), depth=(1, 1, 1), 
+                       group_spatial_size=[4, 4, 4], dropout=0.1, padding=[1, 1, 1], dims=(256, 128, 64), num_groups=[16, 16, 16])
     elif dataset == 'whulk':
-        model = GSCViT(
-            num_classes=9,
-            channels=270,
-            heads=(4, 4, 4),
-            depth=(1, 1, 1),
-            group_spatial_size=[4, 4, 4],
-            dropout=0.1,
-            padding=[1, 1, 1],
-            dims = (256, 128, 64),
-            num_groups=[16, 16, 16]
-        )
+        model = GSCViT(num_classes=9, channels=270, heads=(4, 4, 4), depth=(1, 1, 1), 
+                       group_spatial_size=[4, 4, 4], dropout=0.1, padding=[1, 1, 1], dims=(256, 128, 64), num_groups=[16, 16, 16])
     elif dataset == 'hrl':
-        model = GSCViT(
-            num_classes=14,
-            channels=176,
-            heads=(1, 1, 1),
-            depth=(1, 1, 1),
-            group_spatial_size=[4, 4, 4],
-            dropout=0.1,
-            padding=[1, 1, 1],
-            dims = (256, 128, 64),
-            num_groups=[16, 16, 16]
-        )
+        model = GSCViT(num_classes=14, channels=176, heads=(1, 1, 1), depth=(1, 1, 1), 
+                       group_spatial_size=[4, 4, 4], dropout=0.1, padding=[1, 1, 1], dims=(256, 128, 64), num_groups=[16, 16, 16])
     elif dataset == 'flt':
-        model = GSCViT(
-            num_classes=10,
-            channels=80,
-            heads=(1, 1, 1),
-            depth=(1, 1, 1),
-            group_spatial_size=[4, 4, 4],
-            dropout=0.1,
-            padding=[1, 1, 1],
-            dims = (256, 128, 64),
-            num_groups=[16, 16, 16]
-        )
+        model = GSCViT(num_classes=10, channels=80, heads=(1, 1, 1), depth=(1, 1, 1), 
+                       group_spatial_size=[4, 4, 4], dropout=0.1, padding=[1, 1, 1], dims=(256, 128, 64), num_groups=[16, 16, 16])
     elif dataset == 'ksc':
-        model = GSCViT(
-            num_classes=13,
-            channels=176,
-            heads=(1, 1, 1),
-            depth=(1, 1, 1),
-            group_spatial_size=[4, 4, 4],
-            dropout=0.1,
-            padding=[1, 1, 1],
-            dims = (256, 128, 64),
-            num_groups=[16, 16, 16]
-        )
+        model = GSCViT(num_classes=13, channels=176, heads=(1, 1, 1), depth=(1, 1, 1), 
+                       group_spatial_size=[4, 4, 4], dropout=0.1, padding=[1, 1, 1], dims=(256, 128, 64), num_groups=[16, 16, 16])
     elif dataset == 'ip':
-        model = GSCViT(
-            num_classes=16,
-            channels=200,
-            heads=(16, 16, 16),
-            depth=(1, 1, 1),
-            group_spatial_size=[4, 4,4],
-            dropout=0.1,
-            padding=[1, 1, 1],
-            dims = (256, 128, 64),
-            num_groups=[8, 8, 8]
-        )
+        model = GSCViT(num_classes=16, channels=200, heads=(16, 16, 16), depth=(1, 1, 1), 
+                       group_spatial_size=[4, 4, 4], dropout=0.1, padding=[1, 1, 1], dims=(256, 128, 64), num_groups=[8, 8, 8])
     elif dataset == 'hus':
-        model = GSCViT(
-            num_classes=15,
-            channels=144,
-            heads=(1, 1, 1),
-            depth=(1, 1, 1),
-            group_spatial_size=[4, 4, 4],
-            dropout=0.1,
-            padding=[1, 1, 1],
-            dims = (256, 128, 64),
-            num_groups=[16, 16, 16]
-        )
+        model = GSCViT(num_classes=15, channels=144, heads=(1, 1, 1), depth=(1, 1, 1), 
+                       group_spatial_size=[4, 4, 4], dropout=0.1, padding=[1, 1, 1], dims=(256, 128, 64), num_groups=[16, 16, 16])
     elif dataset == 'MUUFL':
-        model = GSCViT(
-            num_classes=11,
-            channels=64,
-            heads=(1, 1, 1),
-            depth=(1, 1, 1),
-            group_spatial_size=[4, 4, 4],
-            dropout=0.1,
-            padding=[1, 1, 1],
-            dims = (256, 128, 64),
-            num_groups=[16, 16, 16]
-        )
+        model = GSCViT(num_classes=11, channels=64, heads=(1, 1, 1), depth=(1, 1, 1), 
+                       group_spatial_size=[4, 4, 4], dropout=0.1, padding=[1, 1, 1], dims=(256, 128, 64), num_groups=[16, 16, 16])
     elif dataset == 'Trento':
-        model = GSCViT(
-            num_classes=6,
-            channels=63,
-            heads=(1, 1, 1),
-            depth=(1, 1, 1),
-            group_spatial_size=[4, 4, 4],
-            dropout=0.1,
-            padding=[1, 1, 1],
-            dims = (256, 128, 64),
-            num_groups=[16, 16, 16]
-        )
+        model = GSCViT(num_classes=6, channels=63, heads=(1, 1, 1), depth=(1, 1, 1), 
+                       group_spatial_size=[4, 4, 4], dropout=0.1, padding=[1, 1, 1], dims=(256, 128, 64), num_groups=[16, 16, 16])
     elif dataset == 'botswana':
-        model = GSCViT(
-            num_classes=14,
-            channels=145,
-            heads=(1, 1, 1),
-            depth=(1, 1, 1),
-            group_spatial_size=[4, 4, 4],
-            dropout=0.1,
-            padding=[1, 1, 1],
-            dims = (256, 128, 64),
-            num_groups=[8, 8, 8]
-        )
+        model = GSCViT(num_classes=14, channels=145, heads=(1, 1, 1), depth=(1, 1, 1), 
+                       group_spatial_size=[4, 4, 4], dropout=0.1, padding=[1, 1, 1], dims=(256, 128, 64), num_groups=[8, 8, 8])
+    
     return model
 
-
-
 if __name__ == '__main__':
-    img = torch.randn(1, 270, 8, 8)
-    print("input shape:", img.shape)
-    net = gscvit(dataset='whulk')
-    net.default_cfg = _cfg()
-    print("output shape:", net(img).shape)
-    summary(net, torch.zeros((1, 1, 270, 8, 8)))
-    flops, params = profile(net, inputs=(img,))
-    print('params', params)
-    print('flops', flops)  ## 打印计算量
-
+    # Testing flexible initialization
+    img = torch.randn(1, 128, 7, 7)
+    print("Testing custom data initialization...")
+    net = gscvit(num_classes=13, num_bands=128, patch_size=7)
+    print("Output shape:", net(img).shape)
