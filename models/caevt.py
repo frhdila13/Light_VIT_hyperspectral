@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torchsummaryX import summary
+from torchinfo import summary
 from thop import profile
 from typing import Optional, Tuple, Union, Dict
 from torch import Tensor
