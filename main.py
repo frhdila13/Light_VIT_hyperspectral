@@ -11,6 +11,10 @@ from models.get_model import get_model
 from train import train, test
 from utils.utils import Draw
 import torch
+import rasterio
+from rasterio.crs import CRS
+import matplotlib.pyplot as plt
+import tifffile as tiff
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="run patch-based HSI classification")
@@ -102,7 +106,7 @@ if __name__ == "__main__":
         full_prediction = np.zeros((height, width))
         ps = opts.patch_size // 2
         
-        # Pad the image using the same reflect logic as your HSIDataset
+        # Pad image
         padded_img = np.pad(image, ((ps, ps), (ps, ps), (0, 0)), mode='reflect')
         
         # Sliding window inference
@@ -110,20 +114,15 @@ if __name__ == "__main__":
             for i in range(height):
                 patches = []
                 for j in range(width):
-                    # Extract patch centered at (i, j)
                     patch = padded_img[i:i+opts.patch_size, j:j+opts.patch_size, :]
-                    patch = patch.transpose((2, 0, 1)) # to (C, H, W)
+                    patch = patch.transpose((2, 0, 1)) 
                     patches.append(patch)
                     
-                    # Batch processing to maximize GPU efficiency
                     if len(patches) == 128 or j == width - 1:
                         batch = torch.from_numpy(np.array(patches)).float().to(device)
-                        batch = batch.unsqueeze(1) # Add 4th dimension for GSCViT (1, C, H, W)
-                        
+                        batch = batch.unsqueeze(1) 
                         output = model(batch)
                         pred = torch.argmax(output, dim=1)
-                        
-                        # Store prediction back into the map
                         start_j = j - len(patches) + 1
                         full_prediction[i, start_j:j+1] = pred.cpu().numpy()
                         patches = []
@@ -131,35 +130,45 @@ if __name__ == "__main__":
                 if (i + 1) % 50 == 0:
                     print(f"Processed line {i+1}/{height}")
 
-        # Use your existing DrawResult from utils.py to color the map
-        # We use DrawResult(h, w, n_classes, labels)
-        from utils.utils import DrawResult
-        # Note: We add 1 to full_prediction because your palette logic is likely 1-indexed
-        full_colored_map = DrawResult(height, width, num_classes, full_prediction.reshape(-1) + 1)
-        
-        # Save the full image
-        import matplotlib.pyplot as plt
-        full_map_path = f"results/FULL_SCENE_{opts.model}_{opts.dataset_name}.png"
-        
-        # Create the results folder if it doesn't exist
+        # Create the results folder
         os.makedirs("results", exist_ok=True)
         
-        # Define paths for both PNG (visual) and TIF (data)
+        # Color the map for visual preview
+        from utils.utils import DrawResult
+        full_colored_map = DrawResult(height, width, num_classes, full_prediction.reshape(-1) + 1)
+        
+        # 5. Save PNG (Visual)
         full_map_path_png = f"results/FULL_SCENE_{opts.model}_{opts.dataset_name}.png"
-        full_map_path_tif = f"results/FULL_SCENE_{opts.model}_{opts.dataset_name}.tif"
-
-        # Save as PNG for a quick preview (uses the colored map)
-        import matplotlib.pyplot as plt
         plt.imsave(full_map_path_png, full_colored_map)
 
-        # Save as TIF (saves the raw prediction labels 0-12)
-        import tifffile as tiff
-        # We convert to uint8 or uint16 to keep the file size small
-        tiff.imwrite(full_map_path_tif, full_prediction.astype(np.uint8))
+        # SAVE GEO-TIF (Preserving CRS)
+        # Construct path to your original input file to steal its metadata
+        original_tif_path = os.path.join(opts.dataset_dir, opts.img_name)
+        full_map_path_tif = f"results/FULL_SCENE_{opts.model}_{opts.dataset_name}.tif"
 
-        print(f"Full-scene PNG saved to: {full_map_path_png}")
-        print(f"Full-scene TIF saved to: {full_map_path_tif}")
-        print(f"Full-scene map successfully saved to {full_map_path}")
+        try:
+            with rasterio.open(original_tif_path) as src:
+                # Copy the profile (CRS and Transform) from the original
+                out_meta = src.profile.copy()
+                out_meta.update({
+                    "driver": "GTiff",
+                    "height": height,
+                    "width": width,
+                    "count": 1,
+                    "dtype": 'uint8', # Predictions are small integers
+                    "nodata": 0
+                })
+
+            with rasterio.open(full_map_path_tif, "w", **out_meta) as dest:
+                # Write the 2D prediction array to the first band
+                dest.write(full_prediction.astype(np.uint8), 1)
+            print(f"Georeferenced TIF saved to: {full_map_path_tif}")
+            
+        except Exception as e:
+            print(f"Rasterio failed: {e}. Falling back to standard TIFF save.")
+            tiff.imwrite(full_map_path_tif, full_prediction.astype(np.uint8))
+
+        print(f"Inference complete. Visual: {full_map_path_png}")
         # === ADDITIONAL INFERENCE CODE END ===
 
         del model, train_set, train_loader, val_set, val_loader
