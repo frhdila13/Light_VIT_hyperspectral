@@ -70,6 +70,14 @@ def load_scheduler(model_name, model):
         optimizer = optim.AdamW(model.parameters(), lr=0.001, weight_decay=0.05)
         scheduler = None
 
+    elif model_name == 'simplevit':
+        optimizer = optim.AdamW(model.parameters(), lr=0.001, weight_decay=0.05)
+        scheduler = None
+
+    elif model_name == 'vit':
+        optimizer = optim.AdamW(model.parameters(), lr=0.001, weight_decay=0.05)
+        scheduler = None
+    
     return optimizer, scheduler
 
 
