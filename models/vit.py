@@ -15,7 +15,7 @@ class vit(nn.Module):
             dim = 1024,               # Hidden dimension
             depth = 6,               # Number of layers
             heads = 16,
-            mlp_dim = 2048
+            mlp_dim = 2048,
             dropout = 0.1,
             emb_dropout = 0.1
         )
