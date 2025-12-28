@@ -294,20 +294,20 @@ def DrawResult(height, width, num_class, labels):
     #                     [180, 31, 35],
     #                     [123, 18, 20]])
     palette = np.array([[37, 58, 150],
-                        # [47, 78, 161],
-                        # [56, 87, 166],
-                        # [56, 116, 186],
+                        [47, 78, 161],
+                        [56, 87, 166],
+                        [56, 116, 186],
                         [51, 181, 232],
                         [112, 204, 216],
-                        # [119, 201, 168],
+                        [119, 201, 168],
                         [148, 204, 120],
                         [188, 215, 78],
                         [238, 234, 63],
-                        # [246, 187, 31],
+                        [246, 187, 31],
                         [244, 127, 33],
                         [239, 71, 34],
                         [238, 33, 35],
-                        # [180, 31, 35],
+                        [180, 31, 35],
                         [123, 18, 20]])
     palette = palette[:num_class]
     palette = palette * 1.0 / 255
@@ -342,7 +342,7 @@ def Draw(model,image,gt,patch_size,dataset_name,model_name,num_classes):
                 prediction = model(X_test_image)
                 prediction = np.argmax(prediction.detach().cpu().numpy(), axis=1)
                 outputs[i][j] = prediction + 1
-        if i % 20 == 0:
+        if i % 50 == 0:
             print('... ... row ', i, ' handling ... ...')
     predict_labels = np.array(outputs).flatten()
     img = DrawResult(height,width,num_classes,np.reshape(predict_labels,-1))
