@@ -8,6 +8,9 @@ from .gaht import gaht
 from .gscvit import gscvit
 from .morphFormer import morphFormer
 from .caevt import caevt
+from .simplevit import simplevit
+from .vit import vit
+
 def get_model(model_name, dataset_name, patch_size, num_classes, num_bands):
     if model_name == 'cnn2d':
         model = gscvit(num_classes=num_classes, num_bands=num_bands, patch_size=patch_size)
@@ -39,6 +42,12 @@ def get_model(model_name, dataset_name, patch_size, num_classes, num_bands):
     elif model_name == 'caevt':
         model = caevt(num_classes=num_classes, num_bands=num_bands, patch_size=patch_size)
 
+    elif model_name == 'simplevit':
+        model = simplevit(num_classes=num_classes, num_bands=num_bands, patch_size=patch_size)
+
+    elif model_name == 'vit':
+        model = vit(num_classes=num_classes, num_bands=num_bands, patch_size=patch_size)
+    
     else:
         raise KeyError("{} model is not supported yet".format(model_name))
 
